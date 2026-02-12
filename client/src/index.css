@@ -1,0 +1,56 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* (optionnel) petit confort global */
+html, body {
+  height: 100%;
+}
+
+/* ✅ PRINT FIX: rendre le reçu imprimable */
+@media print {
+  /* enlever marges & couleurs inutiles */
+  @page {
+    margin: 12mm;
+  }
+
+  /* éviter page blanche / fond gris */
+  html, body {
+    background: #fff !important;
+  }
+
+  /* forcer l'impression des couleurs (Chrome) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* cacher header/nav/whatsapp floating et tout ce qui n'est pas utile */
+  header,
+  nav,
+  footer {
+    display: none !important;
+  }
+
+  /* si ton WhatsAppFloating a un wrapper fixe */
+  .whatsapp-floating,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* supprimer contraintes layout */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  /* éviter ombres/borders qui peuvent bugger */
+  .print\\:shadow-none {
+    box-shadow: none !important;
+  }
+  .print\\:border-none {
+    border: none !important;
+  }
+}
