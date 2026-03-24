@@ -1,4 +1,3 @@
-// server/src/routes/orders.routes.ts
 import { Router } from "express";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -86,7 +85,9 @@ router.get(
     const id = String(req.params.id ?? "").trim();
 
     const o = await getOrderById(id);
-    if (!o || o.userId !== userId) throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+    if (!o || o.userId !== userId) {
+      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+    }
 
     return res.json({ ok: true, receipt: buildReceipt(o) });
   })
@@ -103,7 +104,9 @@ router.get(
     const id = String(req.params.id ?? "").trim();
 
     const o = await getOrderById(id);
-    if (!o || o.userId !== userId) throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+    if (!o || o.userId !== userId) {
+      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+    }
 
     return res.json({ ok: true, order: o });
   })
@@ -111,15 +114,16 @@ router.get(
 
 /**
  * POST /api/orders
+ * ✅ autorisé en invité
  */
 router.post(
   "/",
-  requireAuth,
   asyncHandler(async (req: any, res) => {
-    const userId = req.session.user.id as string;
+    const userId = req.session?.user?.id ?? null;
 
     const idemKey = readIdempotencyKey(req);
-    if (idemKey) {
+
+    if (idemKey && userId) {
       const existing = await getOrderByIdempotency(userId, idemKey);
       if (existing) {
         return res.status(200).json({
@@ -138,6 +142,7 @@ router.post(
     if (!customer?.name || !customer?.phone || !customer?.address) {
       throw httpError(400, "BAD_CUSTOMER", "Informations client invalides.");
     }
+
     if (!Array.isArray(items) || items.length === 0) {
       throw httpError(400, "BAD_ITEMS", "Panier vide ou invalide.");
     }
@@ -147,15 +152,19 @@ router.post(
       quantity: Math.max(1, Math.floor(Number(it?.quantity ?? 0))),
     }));
 
-    // validate products exist
     for (const it of normalized) {
-      if (!it.id) throw httpError(400, "BAD_ITEM", "Un article est invalide.");
+      if (!it.id) {
+        throw httpError(400, "BAD_ITEM", "Un article est invalide.");
+      }
+
       const p = await getProductById(it.id);
-      if (!p) throw httpError(404, "PRODUCT_NOT_FOUND", `Produit introuvable (${it.id}).`);
+      if (!p) {
+        throw httpError(404, "PRODUCT_NOT_FOUND", `Produit introuvable (${it.id}).`);
+      }
     }
 
-    // ✅ decrement stock in Mongo
     const r = await tryDecrementMany(normalized);
+
     if (!r.ok) {
       if (r.code === "OUT_OF_STOCK" && (r as any).details) {
         const d = (r as any).details;
@@ -166,17 +175,21 @@ router.post(
           d
         );
       }
+
       if (r.code === "NOT_FOUND" && (r as any).productId) {
         throw httpError(404, "PRODUCT_NOT_FOUND", `Produit introuvable (${(r as any).productId}).`);
       }
+
       throw httpError(400, r.code, "Commande invalide.");
     }
 
-    // build items from DB truth
     const orderItems = [];
     for (const it of normalized) {
       const p = await getProductById(it.id);
-      if (!p) throw httpError(500, "PRODUCT_MISSING", `Produit manquant (${it.id}).`);
+      if (!p) {
+        throw httpError(500, "PRODUCT_MISSING", `Produit manquant (${it.id}).`);
+      }
+
       orderItems.push({
         id: p.id,
         title: p.title,
@@ -208,7 +221,12 @@ router.post(
       noteAboutCallItems: del.noteAboutCallItems,
     });
 
-    return res.status(201).json({ ok: true, id: order.id, status: order.status, createdAt: order.createdAt });
+    return res.status(201).json({
+      ok: true,
+      id: order.id,
+      status: order.status,
+      createdAt: order.createdAt,
+    });
   })
 );
 
