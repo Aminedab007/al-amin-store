@@ -69,6 +69,7 @@ function buildReceipt(order: any) {
 
 /**
  * GET /api/orders/me
+ * Historique utilisateur connecté
  */
 router.get(
   "/me",
@@ -87,23 +88,23 @@ router.get(
 
 /**
  * GET /api/orders/:id/receipt
+ * ✅ autorisé en invité
  */
 router.get(
   "/:id/receipt",
-  requireAuth,
   asyncHandler(async (req: any, res) => {
-    const userId = req.session.user.id as string;
-
+    const sessionUserId = req.session?.user?.id ?? null;
     const id = String(req.params.id ?? "").trim();
 
     const o = await getOrderById(id);
 
-    if (!o || o.userId !== userId) {
-      throw httpError(
-        404,
-        "ORDER_NOT_FOUND",
-        "Commande introuvable."
-      );
+    if (!o) {
+      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+    }
+
+    // Si utilisateur connecté et que la commande appartient à quelqu'un d'autre
+    if (sessionUserId && o.userId && o.userId !== "guest" && o.userId !== sessionUserId) {
+      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
     }
 
     return res.json({
@@ -115,23 +116,19 @@ router.get(
 
 /**
  * GET /api/orders/:id
+ * Détail commande utilisateur connecté
  */
 router.get(
   "/:id",
   requireAuth,
   asyncHandler(async (req: any, res) => {
     const userId = req.session.user.id as string;
-
     const id = String(req.params.id ?? "").trim();
 
     const o = await getOrderById(id);
 
     if (!o || o.userId !== userId) {
-      throw httpError(
-        404,
-        "ORDER_NOT_FOUND",
-        "Commande introuvable."
-      );
+      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
     }
 
     return res.json({
@@ -148,21 +145,12 @@ router.get(
 router.post(
   "/",
   asyncHandler(async (req: any, res) => {
+    const userId = req.session?.user?.id ?? "guest";
 
-    // ✅ IMPORTANT : support invité
-    const userId =
-      req.session?.user?.id ??
-      "guest";
-
-    const idemKey =
-      readIdempotencyKey(req);
+    const idemKey = readIdempotencyKey(req);
 
     if (idemKey) {
-      const existing =
-        await getOrderByIdempotency(
-          userId,
-          idemKey
-        );
+      const existing = await getOrderByIdempotency(userId, idemKey);
 
       if (existing) {
         return res.status(200).json({
@@ -175,91 +163,39 @@ router.post(
       }
     }
 
-    const items =
-      req.body?.items as
-        | OrderItemInput[]
-        | undefined;
+    const items = req.body?.items as OrderItemInput[] | undefined;
+    const customer = req.body?.customer as CustomerInput | undefined;
 
-    const customer =
-      req.body?.customer as
-        | CustomerInput
-        | undefined;
-
-    if (
-      !customer?.name ||
-      !customer?.phone ||
-      !customer?.address
-    ) {
-      throw httpError(
-        400,
-        "BAD_CUSTOMER",
-        "Informations client invalides."
-      );
+    if (!customer?.name || !customer?.phone || !customer?.address) {
+      throw httpError(400, "BAD_CUSTOMER", "Informations client invalides.");
     }
 
-    if (
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
-      throw httpError(
-        400,
-        "BAD_ITEMS",
-        "Panier vide ou invalide."
-      );
+    if (!Array.isArray(items) || items.length === 0) {
+      throw httpError(400, "BAD_ITEMS", "Panier vide ou invalide.");
     }
 
-    const normalized =
-      items.map((it) => ({
-        id: String(
-          it?.id ?? ""
-        ).trim(),
+    const normalized = items.map((it) => ({
+      id: String(it?.id ?? "").trim(),
+      quantity: Math.max(1, Math.floor(Number(it?.quantity ?? 0))),
+    }));
 
-        quantity: Math.max(
-          1,
-          Math.floor(
-            Number(
-              it?.quantity ?? 0
-            )
-          )
-        ),
-      }));
-
-    // validate products
     for (const it of normalized) {
       if (!it.id) {
-        throw httpError(
-          400,
-          "BAD_ITEM",
-          "Un article est invalide."
-        );
+        throw httpError(400, "BAD_ITEM", "Un article est invalide.");
       }
 
-      const p =
-        await getProductById(it.id);
+      const p = await getProductById(it.id);
 
       if (!p) {
-        throw httpError(
-          404,
-          "PRODUCT_NOT_FOUND",
-          `Produit introuvable (${it.id}).`
-        );
+        throw httpError(404, "PRODUCT_NOT_FOUND", `Produit introuvable (${it.id}).`);
       }
     }
 
-    // decrement stock
-    const r =
-      await tryDecrementMany(
-        normalized
-      );
+    const r = await tryDecrementMany(normalized);
 
     if (!r.ok) {
-      if (
-        r.code ===
-          "OUT_OF_STOCK" &&
-        (r as any).details
-      ) {
-        const d =
-          (r as any).details;
+      if (r.code === "OUT_OF_STOCK" && (r as any).details) {
+        const d = (r as any).details;
 
         throw httpError(
           409,
@@ -269,11 +205,7 @@ router.post(
         );
       }
 
-      if (
-        r.code ===
-          "NOT_FOUND" &&
-        (r as any).productId
-      ) {
+      if (r.code === "NOT_FOUND" && (r as any).productId) {
         throw httpError(
           404,
           "PRODUCT_NOT_FOUND",
@@ -281,26 +213,16 @@ router.post(
         );
       }
 
-      throw httpError(
-        400,
-        r.code,
-        "Commande invalide."
-      );
+      throw httpError(400, r.code, "Commande invalide.");
     }
 
-    // build order items
     const orderItems = [];
 
     for (const it of normalized) {
-      const p =
-        await getProductById(it.id);
+      const p = await getProductById(it.id);
 
       if (!p) {
-        throw httpError(
-          500,
-          "PRODUCT_MISSING",
-          `Produit manquant (${it.id}).`
-        );
+        throw httpError(500, "PRODUCT_MISSING", `Produit manquant (${it.id}).`);
       }
 
       orderItems.push({
@@ -308,78 +230,37 @@ router.post(
         title: p.title,
         price: p.price,
         quantity: it.quantity,
-        deliveryPolicy:
-          p.deliveryPolicy,
+        deliveryPolicy: p.deliveryPolicy,
       });
     }
 
-    const subtotal =
-      orderItems.reduce(
-        (sum, it) =>
-          sum +
-          it.price *
-            it.quantity,
-        0
-      );
+    const subtotal = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
+    const del = computeDelivery(orderItems);
+    const total = subtotal + del.shippingFee;
 
-    const del =
-      computeDelivery(
-        orderItems
-      );
-
-    const total =
-      subtotal +
-      del.shippingFee;
-
-    const order =
-      await createOrder({
-        userId,
-
-        customer: {
-          name:
-            customer.name.trim(),
-
-          phone:
-            customer.phone.trim(),
-
-          address:
-            customer.address.trim(),
-
-          email:
-            customer.email ??
-            null,
-        },
-
-        items:
-          orderItems,
-
-        subtotal,
-
-        shippingFee:
-          del.shippingFee,
-
-        total,
-
-        idempotencyKey:
-          idemKey ??
-          undefined,
-
-        deliveryProvider:
-          del.deliveryProvider,
-
-        deliveryNote:
-          del.deliveryNote,
-
-        noteAboutCallItems:
-          del.noteAboutCallItems,
-      });
+    const order = await createOrder({
+      userId,
+      customer: {
+        name: customer.name.trim(),
+        phone: customer.phone.trim(),
+        address: customer.address.trim(),
+        email: customer.email ?? null,
+      },
+      items: orderItems,
+      subtotal,
+      shippingFee: del.shippingFee,
+      total,
+      idempotencyKey: idemKey ?? undefined,
+      deliveryProvider: del.deliveryProvider,
+      deliveryNote: del.deliveryNote,
+      noteAboutCallItems: del.noteAboutCallItems,
+    });
 
     return res.status(201).json({
       ok: true,
       id: order.id,
       status: order.status,
-      createdAt:
-        order.createdAt,
+      createdAt: order.createdAt,
     });
   })
 );
