@@ -1,6 +1,6 @@
-// src/lib/api.ts
 export const API_BASE =
-  (import.meta as any).env?.VITE_API_URL?.toString()?.trim() || "http://localhost:4000";
+  (import.meta as any).env?.VITE_API_URL?.toString()?.trim() ||
+  "https://al-amin-store.onrender.com";
 
 export class ApiError extends Error {
   status?: number;
