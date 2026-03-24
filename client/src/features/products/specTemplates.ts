@@ -1,4 +1,11 @@
-import type { ProductCategory } from "../../types/product";
+export type ProductCategory =
+  | "TV"
+  | "FROID"
+  | "CLIM"
+  | "SMARTPHONE"
+  | "CONGELATEUR"
+  | "RECEPTEUR"
+  | "AUTRE";
 
 export type SpecField = { key: string; label: string };
 
@@ -36,8 +43,15 @@ export const SPEC_TEMPLATES: Record<ProductCategory, SpecField[]> = {
     { key: "camera", label: "Caméra" },
     { key: "warranty", label: "Garantie" },
   ],
-  CONGELATEUR: [{ key: "capacity_l", label: "Capacité (L)" }, { key: "warranty", label: "Garantie" }],
-  RECEPTEUR: [{ key: "quality", label: "Qualité" }, { key: "iptv", label: "IPTV" }, { key: "warranty", label: "Garantie" }],
+  CONGELATEUR: [
+    { key: "capacity_l", label: "Capacité (L)" },
+    { key: "warranty", label: "Garantie" },
+  ],
+  RECEPTEUR: [
+    { key: "quality", label: "Qualité" },
+    { key: "iptv", label: "IPTV" },
+    { key: "warranty", label: "Garantie" },
+  ],
   AUTRE: [{ key: "warranty", label: "Garantie" }],
 };
 

@@ -1,4 +1,3 @@
-// src/features/products/productsSlice.ts
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 
@@ -19,57 +18,56 @@ export type Product = {
   isLarge?: boolean;
   deliveryPolicy?: DeliveryPolicy;
   stock: number;
+  isBestSeller?: boolean;
 };
 
 type ProductsState = {
   items: Product[];
   selectedCategory: Category;
   search: string;
-
   sort: SortKey;
   stock: StockFilter;
   delivery: DeliveryFilter;
   minPrice: string;
   maxPrice: string;
-
-  // ✅ load state
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
 };
 
 const initialState: ProductsState = {
-  // ✅ IMPORTANT: plus de mock PRODUCTS ici
   items: [],
   selectedCategory: "Tous",
   search: "",
-
   sort: "RELEVANCE",
   stock: "ALL",
   delivery: "ALL",
   minPrice: "",
   maxPrice: "",
-
   status: "idle",
   error: null,
 };
 
-// ✅ thunk: charge depuis l'API
 export const loadProducts = createAsyncThunk<Product[]>(
   "products/loadProducts",
   async (_, { rejectWithValue }) => {
     try {
       const apiItems = await fetchProducts();
 
-      // ✅ Mapping strict: on garde l'ID API (p-tv-001, etc.)
-      const mapped: Product[] = apiItems.map((p: ApiProduct) => ({
-        id: p.id,
-        title: p.title,
-        price: p.price,
-        category: p.category,
-        image: p.image,
-        isLarge: p.isLarge,
-        stock: Number.isFinite(Number(p.stock)) ? Math.max(0, Math.floor(Number(p.stock))) : 0,
-        deliveryPolicy: p.isLarge ? "CALL_FOR_DELIVERY" : "ARAMEX_10DT",
+      const mapped: Product[] = apiItems.map((p: ApiProduct, index: number) => ({
+        id: String(p.id ?? `product-${index}`),
+        title: String(p.title ?? "Produit"),
+        price: Number(p.price ?? 0),
+        category: String(p.category ?? "Autre"),
+        image: String(p.image ?? "/products/placeholder.webp"),
+        isLarge: Boolean(p.isLarge),
+        stock: Number.isFinite(Number(p.stock))
+          ? Math.max(0, Math.floor(Number(p.stock)))
+          : 0,
+        deliveryPolicy:
+          p.isLarge
+            ? "CALL_FOR_DELIVERY"
+            : "ARAMEX_10DT",
+        isBestSeller: Boolean((p as ApiProduct & { isBestSeller?: boolean }).isBestSeller),
       }));
 
       return mapped;
@@ -89,7 +87,6 @@ const productsSlice = createSlice({
     setSearch(state, action: PayloadAction<string>) {
       state.search = action.payload;
     },
-
     setSort(state, action: PayloadAction<SortKey>) {
       state.sort = action.payload;
     },
@@ -105,7 +102,6 @@ const productsSlice = createSlice({
     setMaxPrice(state, action: PayloadAction<string>) {
       state.maxPrice = action.payload;
     },
-
     resetFilters(state) {
       state.sort = "RELEVANCE";
       state.stock = "ALL";

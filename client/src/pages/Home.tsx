@@ -1,4 +1,3 @@
-// src/pages/Home.tsx
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
@@ -7,7 +6,6 @@ import { addToCart } from "../features/cart/cartSlice";
 import { Container } from "../components/ui/Container";
 import { Button } from "../components/ui/Button";
 import { SectionTitle } from "../components/ui/SectionTitle";
-import HeroSlider from "../components/home/HeroSlider";
 
 type HomeCategory = {
   name: string;
@@ -53,7 +51,7 @@ function ProductMiniCard({
   const inStock = stock > 0;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="relative aspect-[4/3] bg-slate-100">
         <img
           src={image || PLACEHOLDER}
@@ -78,7 +76,7 @@ function ProductMiniCard({
 
       <div className="p-4">
         <div className="text-xs text-slate-500">{category}</div>
-        <div className="mt-1 font-semibold text-slate-900 line-clamp-2">{title}</div>
+        <div className="mt-1 line-clamp-2 font-semibold text-slate-900">{title}</div>
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="text-lg font-extrabold text-emerald-700">{price.toFixed(0)} DT</div>
@@ -99,7 +97,7 @@ function ProductMiniCard({
                   price,
                   deliveryPolicy,
                   image: image || PLACEHOLDER,
-                  stock, // ✅ IMPORTANT
+                  stock,
                   quantity: 1,
                 })
               );
@@ -133,44 +131,71 @@ export default function Home() {
         <Container>
           <div className="py-8">
             <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
-              <HeroSlider />
+              <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black p-6 text-white shadow-sm">
+                <div className="flex h-full flex-col justify-between">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                      AL AMIN STORE
+                    </p>
+                    <h1 className="mt-3 text-3xl font-extrabold leading-tight md:text-5xl">
+                      Électroménager & High-Tech au meilleur prix
+                    </h1>
+                    <p className="mt-4 max-w-xl text-sm text-zinc-200 md:text-base">
+                      TV, réfrigérateurs, climatiseurs, smartphones et accessoires avec une
+                      expérience d’achat moderne, simple et rapide.
+                    </p>
+                  </div>
 
-              <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <Link to="/products">
+                      <Button className="w-full sm:w-auto">Voir les produits</Button>
+                    </Link>
+                    <Link
+                      to="/products?sort=PRICE_ASC"
+                      className="inline-flex items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                    >
+                      Bons plans
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <SectionTitle title="Catégories populaires" subtitle="Clique pour filtrer" />
 
-                <div className="md:hidden mt-4 relative">
+                <div className="relative mt-4 md:hidden">
                   <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent" />
                   <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent" />
 
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
                     {HOME_CATEGORIES.map((c) => (
                       <Link
                         key={c.name}
                         to={`/products?category=${encodeURIComponent(c.category)}`}
-                        className="shrink-0 w-52 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition p-4"
+                        className="w-52 shrink-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-white"
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{c.icon || "🛒"}</span>
                           <div className="font-semibold">{c.name}</div>
                         </div>
-                        <div className="text-xs text-slate-600 mt-2">Explorer →</div>
+                        <div className="mt-2 text-xs text-slate-600">Explorer →</div>
                       </Link>
                     ))}
                   </div>
                 </div>
 
-                <div className="hidden md:grid grid-cols-2 gap-3 mt-4">
+                <div className="mt-4 hidden grid-cols-2 gap-3 md:grid">
                   {HOME_CATEGORIES.map((c) => (
                     <Link
                       key={c.name}
                       to={`/products?category=${encodeURIComponent(c.category)}`}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition p-4"
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-white"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{c.icon || "🛒"}</span>
                         <div className="font-semibold">{c.name}</div>
                       </div>
-                      <div className="text-xs text-slate-600 mt-2">Explorer →</div>
+                      <div className="mt-2 text-xs text-slate-600">Explorer →</div>
                     </Link>
                   ))}
                 </div>
@@ -189,17 +214,21 @@ export default function Home() {
               Aucun produit pour le moment.
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {best.map((p: any) => (
                 <ProductMiniCard
-                  key={p.id}
-                  id={p.id}
-                  title={p.title}
-                  category={p.category}
-                  price={p.price}
+                  key={String(p.id)}
+                  id={String(p.id)}
+                  title={String(p.title)}
+                  category={String(p.category)}
+                  price={Number(p.price)}
                   image={p.image}
-                  stock={getStockValue(p)} // ✅ stock unique
-                  deliveryPolicy={p.deliveryPolicy}
+                  stock={getStockValue(p)}
+                  deliveryPolicy={
+                    p.deliveryPolicy === "CALL_FOR_DELIVERY"
+                      ? "CALL_FOR_DELIVERY"
+                      : "ARAMEX_10DT"
+                  }
                 />
               ))}
             </div>

@@ -1,16 +1,15 @@
-// src/components/ProductCard.tsx
 import { Link } from "react-router-dom";
-import type { Product } from "../../data/products";
-import { useAppDispatch } from "../../app/hooks";
-import { addToCart } from "../../features/cart/cartSlice";
-import Badge from "./Badge";
-import SmartImage from "./SmartImage";
+import type { Product } from "../features/products/productsSlice";
+import { useAppDispatch } from "../app/hooks";
+import { addToCart } from "../features/cart/cartSlice";
+import Badge from "./ui/Badge";
+import SmartImage from "./ui/SmartImage";
 
 function formatPriceDT(price: number) {
   return `${price.toFixed(3)} DT`;
 }
 
-function getStock(p: any) {
+function getStock(p: { stock?: unknown }) {
   const n = Number(p?.stock);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.floor(n));
@@ -24,9 +23,10 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="relative rounded-2xl border border-zinc-200 bg-white p-3 transition hover:shadow-sm">
-      {/* BADGES */}
       <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-2">
-        {(product as any).isBestSeller && <Badge>Best Seller</Badge>}
+        {(product as Product & { isBestSeller?: boolean }).isBestSeller ? (
+          <Badge>Best Seller</Badge>
+        ) : null}
 
         {inStock ? (
           <Badge tone="success">En stock</Badge>
@@ -41,7 +41,6 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
       </div>
 
-      {/* IMAGE */}
       <Link to={`/products/${product.id}`} className="block">
         <div className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-zinc-50">
           <SmartImage
@@ -53,7 +52,6 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       </Link>
 
-      {/* INFO */}
       <div className="mt-3 space-y-1">
         <Link
           to={`/products/${product.id}`}
@@ -65,11 +63,12 @@ export default function ProductCard({ product }: { product: Product }) {
         <div className="text-sm font-bold text-zinc-900">{formatPriceDT(product.price)}</div>
       </div>
 
-      {/* CTA */}
       <button
         disabled={!inStock}
         className={`mt-3 w-full rounded-xl px-3 py-2 text-sm font-semibold text-white transition active:scale-[0.99] ${
-          inStock ? "bg-zinc-900 hover:bg-zinc-800" : "cursor-not-allowed bg-zinc-200 text-zinc-500"
+          inStock
+            ? "bg-zinc-900 hover:bg-zinc-800"
+            : "cursor-not-allowed bg-zinc-200 text-zinc-500"
         }`}
         onClick={() => {
           if (!inStock) return;
@@ -79,8 +78,8 @@ export default function ProductCard({ product }: { product: Product }) {
               title: product.title,
               price: product.price,
               image: product.image,
-              deliveryPolicy: product.deliveryPolicy,
-              stock, // ✅ IMPORTANT
+              deliveryPolicy: product.deliveryPolicy ?? "ARAMEX_10DT",
+              stock,
               quantity: 1,
             })
           );

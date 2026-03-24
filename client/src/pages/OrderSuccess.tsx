@@ -1,4 +1,3 @@
-// src/pages/OrderSuccess.tsx
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useAppSelector } from "../app/hooks";
@@ -17,13 +16,12 @@ function getLastOrderId(): string | null {
   }
 }
 
-// ✅ Backend receipt -> OrderReceiptCard Order
 function receiptToOrder(receipt: any): Order {
   const lines = Array.isArray(receipt?.lines) ? receipt.lines : [];
   const totals = receipt?.totals ?? {};
   const shipping = receipt?.shipping ?? {};
 
-  const items = lines.map((l: any) => ({
+  const items: Order["items"] = lines.map((l: any) => ({
     id: String(l.id ?? ""),
     title: String(l.title ?? ""),
     price: Number(l.unitPrice ?? l.price ?? 0),
@@ -52,7 +50,9 @@ function receiptToOrder(receipt: any): Order {
     delivery: {
       providerLabel: shipping?.provider ? String(shipping.provider) : undefined,
       note: shipping?.note ? String(shipping.note) : undefined,
-      hasLarge: items.some((it) => String(it.deliveryPolicy) !== "ARAMEX_10DT"),
+      hasLarge: items.some(
+        (it: Order["items"][number]) => String(it.deliveryPolicy) !== "ARAMEX_10DT"
+      ),
     },
   };
 }
@@ -72,9 +72,6 @@ export default function OrderSuccess() {
 
     try {
       const data = await fetchOrderReceipt(lastOrderId);
-
-      // ✅ TON backend renvoie: { ok:true, receipt: {...} }
-      // mais on supporte aussi data direct au cas où
       const receipt = (data as any)?.receipt ?? (data as any)?.order ?? data;
 
       if (!receipt?.id) {
@@ -96,7 +93,6 @@ export default function OrderSuccess() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastOrderId]);
 
-  // ✅ Aucun ID => page ouverte directement
   if (!lastOrderId) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
@@ -126,10 +122,9 @@ export default function OrderSuccess() {
     );
   }
 
-  // ✅ Loading
   if (status === "loading" || status === "idle") {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-10 space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-10">
         <div className="rounded-3xl border border-zinc-200 bg-white p-6">
           <h1 className="text-2xl font-extrabold text-zinc-900">Reçu de commande</h1>
           <p className="mt-2 text-sm text-zinc-600">Chargement du reçu…</p>
@@ -145,7 +140,6 @@ export default function OrderSuccess() {
     );
   }
 
-  // ✅ Error
   if (status === "failed") {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
@@ -187,7 +181,6 @@ export default function OrderSuccess() {
     );
   }
 
-  // ✅ Success
   if (!order) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
@@ -208,7 +201,7 @@ export default function OrderSuccess() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-10">
       <div className="print:hidden">
         <div className="rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -1,4 +1,3 @@
-// src/pages/ProductDetails.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -25,11 +24,7 @@ type ProductApi = {
   price: number;
   category: string;
   image: string;
-
-  // ✅ source unique
   stock: number;
-
-  // optionnels
   isLarge?: boolean;
   deliveryPolicy?: DeliveryPolicy;
   images?: string[];
@@ -70,8 +65,6 @@ export default function ProductDetails() {
   const { id } = useParams();
   const nav = useNavigate();
   const dispatch = useAppDispatch();
-
-  // produits déjà chargés via Products page (utile pour related)
   const all = useAppSelector((s) => s.products.items);
 
   const [loading, setLoading] = useState(true);
@@ -82,7 +75,10 @@ export default function ProductDetails() {
     let alive = true;
 
     async function run() {
-      if (!id) return;
+      if (!id) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       setError(null);
@@ -101,7 +97,8 @@ export default function ProductDetails() {
       }
     }
 
-    run();
+    void run();
+
     return () => {
       alive = false;
     };
@@ -111,12 +108,11 @@ export default function ProductDetails() {
     if (!product) return null;
 
     const stock = getStockValue(product);
-    const stockInfo = stockUi(stock); // ✅ messages pro (sans chiffres)
+    const stockInfo = stockUi(stock);
     const inStock = stock > 0;
 
     const deliveryPolicy: DeliveryPolicy =
-      (product.deliveryPolicy as DeliveryPolicy | undefined) ??
-      (product.isLarge ? "CALL_FOR_DELIVERY" : "ARAMEX_10DT");
+      product.deliveryPolicy ?? (product.isLarge ? "CALL_FOR_DELIVERY" : "ARAMEX_10DT");
 
     const images =
       Array.isArray(product.images) && product.images.length
@@ -178,26 +174,27 @@ export default function ProductDetails() {
     );
   }
 
-  const isCall = normalized.deliveryPolicy === "CALL_FOR_DELIVERY";
+  const current = normalized;
+  const isCall = current.deliveryPolicy === "CALL_FOR_DELIVERY";
 
   const stockPill =
-    normalized.stockInfo.tone === "success"
+    current.stockInfo.tone === "success"
       ? "bg-emerald-100 text-emerald-700"
-      : normalized.stockInfo.tone === "warning"
+      : current.stockInfo.tone === "warning"
         ? "bg-amber-100 text-amber-800"
         : "bg-rose-100 text-rose-700";
 
-    function handleAdd(qty = 1) {
-    if (!normalized.inStock) return;
+  function handleAdd(qty = 1) {
+    if (!current.inStock) return;
 
     dispatch(
       addToCart({
-        id: normalized.id,
-        title: normalized.title,
-        price: normalized.price,
-        deliveryPolicy: normalized.deliveryPolicy,
-        image: normalized.image,
-        stock: normalized.stock, // ✅ IMPORTANT
+        id: current.id,
+        title: current.title,
+        price: current.price,
+        deliveryPolicy: current.deliveryPolicy,
+        image: current.image,
+        stock: current.stock,
         quantity: qty,
       })
     );
@@ -210,7 +207,6 @@ export default function ProductDetails() {
 
   return (
     <div className="mx-auto max-w-6xl px-3 pb-24 pt-4 md:px-6 md:pb-10">
-      {/* Breadcrumb */}
       <div className="mb-3 text-sm text-zinc-500">
         <Link to="/" className="hover:underline">
           Accueil
@@ -219,57 +215,58 @@ export default function ProductDetails() {
         <Link to="/products" className="hover:underline">
           Produits
         </Link>{" "}
-        / {normalized.category} / {normalized.title}
+        / {current.category} / {current.title}
       </div>
 
-      {/* Badges */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {normalized.isBestSeller ? <Badge>Best Seller</Badge> : null}
+        {current.isBestSeller ? <Badge>Best Seller</Badge> : null}
 
-        <Badge tone={normalized.inStock ? "success" : "warning"}>
-          {normalized.inStock ? "Disponible" : "Rupture"}
+        <Badge tone={current.inStock ? "success" : "warning"}>
+          {current.inStock ? "Disponible" : "Rupture"}
         </Badge>
 
-        {/* ✅ Stock marketing (sans chiffres) */}
-        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold ${stockPill}`}>
-          {normalized.stockInfo.text}
+        <span
+          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold ${stockPill}`}
+        >
+          {current.stockInfo.text}
         </span>
 
-        {normalized.deliveryPolicy === "ARAMEX_10DT" ? (
+        {current.deliveryPolicy === "ARAMEX_10DT" ? (
           <Badge tone="info">Livraison 10 DT</Badge>
         ) : (
           <Badge tone="warning">On vous appelle</Badge>
         )}
 
-        {normalized.sku ? <Badge tone="info">SKU: {normalized.sku}</Badge> : null}
+        {current.sku ? <Badge tone="info">SKU: {current.sku}</Badge> : null}
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
-        {/* LEFT */}
         <div className="space-y-4">
-          <h1 className="text-xl font-semibold text-zinc-900 md:hidden">{normalized.title}</h1>
-          <ImageGallery images={normalized.images} alt={normalized.title} />
-          <ProductInfo product={normalized as any} />
+          <h1 className="text-xl font-semibold text-zinc-900 md:hidden">{current.title}</h1>
+          <ImageGallery images={current.images} alt={current.title} />
+          <ProductInfo product={current as any} />
         </div>
 
-        {/* RIGHT */}
         <aside className="md:sticky md:top-4 md:self-start">
           <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4">
-            <h1 className="hidden text-2xl font-semibold text-zinc-900 md:block">{normalized.title}</h1>
+            <h1 className="hidden text-2xl font-semibold text-zinc-900 md:block">
+              {current.title}
+            </h1>
 
-            <div className="text-2xl font-bold text-zinc-900">{money(normalized.price)}</div>
+            <div className="text-2xl font-bold text-zinc-900">{money(current.price)}</div>
 
-            {/* ✅ stock pro (sans chiffres) */}
             <div className="text-sm text-zinc-700">
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold ${stockPill}`}>
-                {normalized.stockInfo.text}
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold ${stockPill}`}
+              >
+                {current.stockInfo.text}
               </span>
             </div>
 
-            {/* Delivery */}
             {isCall ? (
               <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-                <b>Grand gabarit :</b> livraison à confirmer. <b>On vous appelle</b> après la commande.
+                <b>Grand gabarit :</b> livraison à confirmer. <b>On vous appelle</b> après la
+                commande.
               </div>
             ) : (
               <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
@@ -277,22 +274,22 @@ export default function ProductDetails() {
               </div>
             )}
 
-            {/* CTA */}
             <button
-              disabled={!normalized.inStock}
+              disabled={!current.inStock}
               onClick={() => handleAdd(1)}
               className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition active:scale-[0.99] ${
-                normalized.inStock ? "bg-zinc-900 text-white hover:bg-zinc-800" : "cursor-not-allowed bg-zinc-200 text-zinc-500"
+                current.inStock
+                  ? "bg-zinc-900 text-white hover:bg-zinc-800"
+                  : "cursor-not-allowed bg-zinc-200 text-zinc-500"
               }`}
             >
-              {normalized.inStock ? "Ajouter au panier" : "Indisponible"}
+              {current.inStock ? "Ajouter au panier" : "Indisponible"}
             </button>
 
-            {/* Appeler maintenant (CALL_FOR_DELIVERY) */}
             {isCall ? (
               <a
                 href={`tel:${STORE_PHONE_TN}`}
-                className="w-full inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-extrabold text-amber-900 hover:bg-amber-100 transition"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-extrabold text-amber-900 transition hover:bg-amber-100"
               >
                 Appeler maintenant • {STORE_PHONE}
               </a>
@@ -300,29 +297,29 @@ export default function ProductDetails() {
 
             <button
               type="button"
-              disabled={!normalized.inStock}
+              disabled={!current.inStock}
               onClick={handleBuyNow}
               className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                normalized.inStock ? "border-zinc-200 text-zinc-900 hover:bg-zinc-50" : "cursor-not-allowed border-zinc-200 text-zinc-400"
+                current.inStock
+                  ? "border-zinc-200 text-zinc-900 hover:bg-zinc-50"
+                  : "cursor-not-allowed border-zinc-200 text-zinc-400"
               }`}
             >
               Acheter maintenant
             </button>
 
             <div className="text-xs text-zinc-500">
-              Paiement à la livraison (selon zone) • Support WhatsApp • Qualité Garantie 
+              Paiement à la livraison (selon zone) • Support WhatsApp • Qualité Garantie
             </div>
           </div>
         </aside>
       </div>
 
-      {/* Related products */}
       <div className="mt-10">
-        <RelatedProducts product={normalized as any} all={all as any} />
+        <RelatedProducts product={current as any} all={all as any} />
       </div>
 
-      {/* Mobile sticky add */}
-      <AddToCartBarMobile product={normalized as any} />
+      <AddToCartBarMobile product={current as any} />
     </div>
   );
 }
