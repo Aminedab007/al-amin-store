@@ -13,6 +13,7 @@ import {
 } from "../data/orders.store.js";
 
 type OrderItemInput = { id: string; quantity: number };
+
 type CustomerInput = {
   name: string;
   phone: string;
@@ -25,8 +26,13 @@ const router = Router();
 function readIdempotencyKey(req: any) {
   const h = req.header("Idempotency-Key");
   if (!h) return null;
+
   const key = String(h).trim();
-  if (key.length < 8 || key.length > 200) return null;
+
+  if (key.length < 8 || key.length > 200) {
+    return null;
+  }
+
   return key;
 }
 
@@ -69,8 +75,13 @@ router.get(
   requireAuth,
   asyncHandler(async (req: any, res) => {
     const userId = req.session.user.id as string;
+
     const items = await listOrdersByUser(userId);
-    return res.json({ ok: true, items });
+
+    return res.json({
+      ok: true,
+      items,
+    });
   })
 );
 
@@ -82,14 +93,23 @@ router.get(
   requireAuth,
   asyncHandler(async (req: any, res) => {
     const userId = req.session.user.id as string;
+
     const id = String(req.params.id ?? "").trim();
 
     const o = await getOrderById(id);
+
     if (!o || o.userId !== userId) {
-      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+      throw httpError(
+        404,
+        "ORDER_NOT_FOUND",
+        "Commande introuvable."
+      );
     }
 
-    return res.json({ ok: true, receipt: buildReceipt(o) });
+    return res.json({
+      ok: true,
+      receipt: buildReceipt(o),
+    });
   })
 );
 
@@ -101,14 +121,23 @@ router.get(
   requireAuth,
   asyncHandler(async (req: any, res) => {
     const userId = req.session.user.id as string;
+
     const id = String(req.params.id ?? "").trim();
 
     const o = await getOrderById(id);
+
     if (!o || o.userId !== userId) {
-      throw httpError(404, "ORDER_NOT_FOUND", "Commande introuvable.");
+      throw httpError(
+        404,
+        "ORDER_NOT_FOUND",
+        "Commande introuvable."
+      );
     }
 
-    return res.json({ ok: true, order: o });
+    return res.json({
+      ok: true,
+      order: o,
+    });
   })
 );
 
@@ -119,12 +148,22 @@ router.get(
 router.post(
   "/",
   asyncHandler(async (req: any, res) => {
-    const userId = req.session?.user?.id ?? null;
 
-    const idemKey = readIdempotencyKey(req);
+    // ✅ IMPORTANT : support invité
+    const userId =
+      req.session?.user?.id ??
+      "guest";
 
-    if (idemKey && userId) {
-      const existing = await getOrderByIdempotency(userId, idemKey);
+    const idemKey =
+      readIdempotencyKey(req);
+
+    if (idemKey) {
+      const existing =
+        await getOrderByIdempotency(
+          userId,
+          idemKey
+        );
+
       if (existing) {
         return res.status(200).json({
           ok: true,
@@ -136,38 +175,92 @@ router.post(
       }
     }
 
-    const items = req.body?.items as OrderItemInput[] | undefined;
-    const customer = req.body?.customer as CustomerInput | undefined;
+    const items =
+      req.body?.items as
+        | OrderItemInput[]
+        | undefined;
 
-    if (!customer?.name || !customer?.phone || !customer?.address) {
-      throw httpError(400, "BAD_CUSTOMER", "Informations client invalides.");
+    const customer =
+      req.body?.customer as
+        | CustomerInput
+        | undefined;
+
+    if (
+      !customer?.name ||
+      !customer?.phone ||
+      !customer?.address
+    ) {
+      throw httpError(
+        400,
+        "BAD_CUSTOMER",
+        "Informations client invalides."
+      );
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      throw httpError(400, "BAD_ITEMS", "Panier vide ou invalide.");
+    if (
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
+      throw httpError(
+        400,
+        "BAD_ITEMS",
+        "Panier vide ou invalide."
+      );
     }
 
-    const normalized = items.map((it) => ({
-      id: String(it?.id ?? "").trim(),
-      quantity: Math.max(1, Math.floor(Number(it?.quantity ?? 0))),
-    }));
+    const normalized =
+      items.map((it) => ({
+        id: String(
+          it?.id ?? ""
+        ).trim(),
 
+        quantity: Math.max(
+          1,
+          Math.floor(
+            Number(
+              it?.quantity ?? 0
+            )
+          )
+        ),
+      }));
+
+    // validate products
     for (const it of normalized) {
       if (!it.id) {
-        throw httpError(400, "BAD_ITEM", "Un article est invalide.");
+        throw httpError(
+          400,
+          "BAD_ITEM",
+          "Un article est invalide."
+        );
       }
 
-      const p = await getProductById(it.id);
+      const p =
+        await getProductById(it.id);
+
       if (!p) {
-        throw httpError(404, "PRODUCT_NOT_FOUND", `Produit introuvable (${it.id}).`);
+        throw httpError(
+          404,
+          "PRODUCT_NOT_FOUND",
+          `Produit introuvable (${it.id}).`
+        );
       }
     }
 
-    const r = await tryDecrementMany(normalized);
+    // decrement stock
+    const r =
+      await tryDecrementMany(
+        normalized
+      );
 
     if (!r.ok) {
-      if (r.code === "OUT_OF_STOCK" && (r as any).details) {
-        const d = (r as any).details;
+      if (
+        r.code ===
+          "OUT_OF_STOCK" &&
+        (r as any).details
+      ) {
+        const d =
+          (r as any).details;
+
         throw httpError(
           409,
           "OUT_OF_STOCK",
@@ -176,18 +269,38 @@ router.post(
         );
       }
 
-      if (r.code === "NOT_FOUND" && (r as any).productId) {
-        throw httpError(404, "PRODUCT_NOT_FOUND", `Produit introuvable (${(r as any).productId}).`);
+      if (
+        r.code ===
+          "NOT_FOUND" &&
+        (r as any).productId
+      ) {
+        throw httpError(
+          404,
+          "PRODUCT_NOT_FOUND",
+          `Produit introuvable (${(r as any).productId}).`
+        );
       }
 
-      throw httpError(400, r.code, "Commande invalide.");
+      throw httpError(
+        400,
+        r.code,
+        "Commande invalide."
+      );
     }
 
+    // build order items
     const orderItems = [];
+
     for (const it of normalized) {
-      const p = await getProductById(it.id);
+      const p =
+        await getProductById(it.id);
+
       if (!p) {
-        throw httpError(500, "PRODUCT_MISSING", `Produit manquant (${it.id}).`);
+        throw httpError(
+          500,
+          "PRODUCT_MISSING",
+          `Produit manquant (${it.id}).`
+        );
       }
 
       orderItems.push({
@@ -195,37 +308,78 @@ router.post(
         title: p.title,
         price: p.price,
         quantity: it.quantity,
-        deliveryPolicy: p.deliveryPolicy,
+        deliveryPolicy:
+          p.deliveryPolicy,
       });
     }
 
-    const subtotal = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
-    const del = computeDelivery(orderItems);
-    const total = subtotal + del.shippingFee;
+    const subtotal =
+      orderItems.reduce(
+        (sum, it) =>
+          sum +
+          it.price *
+            it.quantity,
+        0
+      );
 
-    const order = await createOrder({
-      userId,
-      customer: {
-        name: customer.name.trim(),
-        phone: customer.phone.trim(),
-        address: customer.address.trim(),
-        email: customer.email ?? null,
-      },
-      items: orderItems,
-      subtotal,
-      shippingFee: del.shippingFee,
-      total,
-      idempotencyKey: idemKey ?? undefined,
-      deliveryProvider: del.deliveryProvider,
-      deliveryNote: del.deliveryNote,
-      noteAboutCallItems: del.noteAboutCallItems,
-    });
+    const del =
+      computeDelivery(
+        orderItems
+      );
+
+    const total =
+      subtotal +
+      del.shippingFee;
+
+    const order =
+      await createOrder({
+        userId,
+
+        customer: {
+          name:
+            customer.name.trim(),
+
+          phone:
+            customer.phone.trim(),
+
+          address:
+            customer.address.trim(),
+
+          email:
+            customer.email ??
+            null,
+        },
+
+        items:
+          orderItems,
+
+        subtotal,
+
+        shippingFee:
+          del.shippingFee,
+
+        total,
+
+        idempotencyKey:
+          idemKey ??
+          undefined,
+
+        deliveryProvider:
+          del.deliveryProvider,
+
+        deliveryNote:
+          del.deliveryNote,
+
+        noteAboutCallItems:
+          del.noteAboutCallItems,
+      });
 
     return res.status(201).json({
       ok: true,
       id: order.id,
       status: order.status,
-      createdAt: order.createdAt,
+      createdAt:
+        order.createdAt,
     });
   })
 );
